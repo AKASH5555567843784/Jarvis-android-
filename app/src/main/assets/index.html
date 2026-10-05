@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>J.A.R.V.I.S</title>
+<style>
+:root{--bg:#02070d;--panel:rgba(8,28,44,.65);--tx:#d6f6ff;--dim:#6fa3b8;--ac:#00d9ff;--ln:rgba(0,217,255,.25)}
+*{box-sizing:border-box;margin:0}html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 30%,#06223a,var(--bg) 70%);color:var(--tx);font-family:system-ui,sans-serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(rgba(0,217,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,217,255,.04) 1px,transparent 1px);background-size:44px 44px}
+button,input{font:inherit}.wrap{height:100%;display:grid;grid-template-columns:230px 1fr 230px;grid-template-rows:auto 1fr;gap:12px;padding:14px}
+header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ln);padding:4px 4px 10px}header b{color:var(--ac);letter-spacing:.35em;text-shadow:0 0 15px var(--ac)}
+.panel{background:var(--panel);border:1px solid var(--ln);padding:14px;overflow:auto}.panel h3{font-size:12px;color:var(--ac);letter-spacing:.25em;margin-bottom:15px}
+.stat{margin:14px 0;color:var(--dim);font-size:13px}.stat div{display:flex;justify-content:space-between;color:var(--tx)}.bar{height:4px;background:var(--ln);margin-top:5px}.bar i{display:block;height:100%;background:var(--ac);box-shadow:0 0 8px var(--ac)}
+#mid{display:flex;flex-direction:column;min-height:0;gap:10px}#orb{height:35vh;min-height:190px;position:relative}canvas{width:100%;height:100%;display:block}#state{position:absolute;bottom:2px;width:100%;text-align:center;color:var(--ac);letter-spacing:.3em;font-size:12px}
+#log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:3px}.m{max-width:88%;padding:9px 12px;border:1px solid var(--ln);background:var(--panel);line-height:1.4}.u{align-self:flex-end;border-color:var(--ac);color:var(--ac)}.j:before{content:"JARVIS ▸ ";color:var(--ac);font-size:11px}
+#in{display:flex;gap:7px}#txt{flex:1;min-width:0;padding:13px;background:var(--panel);border:1px solid var(--ln);color:var(--tx);outline:0}#in button,#lm{border:1px solid var(--ac);background:var(--panel);color:var(--ac);padding:0 15px}#mic.on{background:var(--ac);color:#000}
+.q{width:100%;padding:9px;margin:4px 0;text-align:left;background:none;border:1px solid var(--ln);color:var(--tx)}@media(max-width:900px){.wrap{grid-template-columns:1fr}.panel{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><b>J.A.R.V.I.S</b><button id="lm" style="display:none"></button><span id="clock">--:--:--</span></header>
+<aside class="panel"><h3>SYSTEM STATUS</h3>
+<div class="stat"><div>CPU <span id="cpu">--</span></div><div class="bar"><i id="cb"></i></div></div>
+<div class="stat"><div>MEMORY <span id="mem">--</span></div><div class="bar"><i id="mb"></i></div></div>
+<div class="stat"><div>POWER <span id="power">--</span></div><div class="bar"><i id="pb"></i></div></div>
+<div class="stat"><div>NETWORK <span id="net">--</span></div></div>
+<div class="stat"><div>DEVICE <span id="device">--</span></div></div></aside>
+<section id="mid"><div id="orb"><canvas id="reactor"></canvas><div id="state">STANDBY</div></div><div id="log"></div>
+<div id="in"><input id="txt" placeholder="Jarvis se kuch bhi poochho…" autocomplete="off"><button id="mic">🎙</button><button id="go">➤</button></div></section>
+<aside class="panel"><h3>QUICK COMMANDS</h3><button class="q">Time batao</button><button class="q">Aaj ki date</button><button class="q">Joke sunao</button><button class="q">Battery status</button><button class="q">Theme gold</button><button class="q">Theme red</button><button class="q">Theme cyan</button></aside>
+</div>
+<script>
+const $=s=>document.querySelector(s),themes={cyan:"#00d9ff",blue:"#3d8bff",red:"#ff3b3b",gold:"#ffb800",green:"#2dff8a",purple:"#b06bff"};let mode="idle",cur=null,voices=[];
+function setState(){ $("#state").textContent={idle:"STANDBY",listening:"LISTENING…",speaking:"SPEAKING",think:"PROCESSING"}[mode]||"STANDBY" }
+function setAc(c){document.documentElement.style.setProperty("--ac",c);document.documentElement.style.setProperty("--ln",c+"40")}
+function reactor(t){const c=$("#reactor"),r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.5);c.width=r.width*d;c.height=r.height*d;const x=c.getContext("2d"),w=c.width,h=c.height,cx=w/2,cy=h/2,R=Math.min(w,h)*.38;x.clearRect(0,0,w,h);x.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue("--ac");x.shadowColor=x.strokeStyle;x.shadowBlur=25;x.lineWidth=3;
+for(let i=0;i<4;i++){x.beginPath();x.arc(cx,cy,R+i*18,t*(i%2?-.5:.7)+i,R+i*18,t*(i%2?-.5:.7)+i+4);x.stroke()}x.shadowBlur=40;x.fillStyle=x.strokeStyle;x.beginPath();x.arc(cx,cy,R*.45,0,7);x.fill()}
+(function loop(t){reactor(t/1000);requestAnimationFrame(loop)})()
+function add(t,c){const d=document.createElement("div");d.className="m "+c;d.textContent=t;$("#log").appendChild(d);$("#log").scrollTop=1e9}
+function say(t){if(!("speechSynthesis"in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.98;u.pitch=.85;const v=voices.find(v=>/en-IN|hi-IN/i.test(v.lang));if(v)u.voice=v;u.onstart=()=>{mode="speaking";setState()};u.onend=()=>{mode="idle";setState()};speechSynthesis.speak(u)}
+if("speechSynthesis"in window){voices=speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>voices=speechSynthesis.getVoices()}
+function brain(q){const s=q.toLowerCase(),has=(...a)=>a.some(x=>s.includes(x)),th=s.match(/theme\s+(\w+)/);
+if(th&&themes[th[1]]){setAc(themes[th[1]]);return"Theme "+th[1]+" activate kar diya, sir."}
+if(has("time","samay","kitne baje"))return"Abhi samay hai "+new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})+".";
+if(has("date","tareekh","tarikh","aaj kya din"))return"Aaj "+new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+" hai.";
+if(has("joke","mazak","chutkula"))return["Mere paas joke hai, par woh abhi update ho raha hai.","Programmer ka favourite place? Git commit."][Math.floor(Math.random()*2)];
+if(has("battery","power"))return"Power status: "+$("#power").textContent+".";
+if(has("who are you","tum kaun","tera naam","your name"))return"Main JARVIS hoon, aapka personal AI assistant.";
+if(has("hello","hi","namaste","hey"))return"Namaste sir. Main aapki kya madad kar sakta hoon?";
+if(has("thank","shukriya","dhanyavaad"))return"Aapka swagat hai, sir.";
+return null}
+window.onLlmToken=(t,done)=>{if(!cur)return;cur.textContent+=t;if(done){say(cur.textContent);cur=null;mode="idle";setState()}};
+window.onModelState=st=>{const b=$("#lm");b.style.display="block";b.textContent={ready:"🧠 AI READY",loading:"🧠 LOADING…",nomodel:"🧠 LOAD MODEL",error:"🧠 MODEL ERROR"}[st]||st;b.dataset.s=st};
+$("#lm").onclick=()=>{if(window.AndroidLLM&&$("#lm").dataset.s!=="loading")AndroidLLM.pickModel()};
+function ask(q){q=q.trim();if(!q)return;add(q,"u");mode="think";setState();const a=brain(q);if(a!==null){setTimeout(()=>{add(a,"j");say(a)},250);return}
+if(window.AndroidLLM&&AndroidLLM.status()==="ready"){add("","j");cur=$("#log").lastChild;AndroidLLM.ask(q)}else{const m="Offline AI model load nahi hai. Upar 🧠 LOAD MODEL dabayein.";setTimeout(()=>{add(m,"j");say(m);mode="idle";setState()},250)}}
+$("#go").onclick=()=>{ask($("#txt").value);$("#txt").value=""};$("#txt").onkeydown=e=>{if(e.key==="Enter")$("#go").click()};document.querySelectorAll(".q").forEach(b=>b.onclick=()=>ask(b.textContent));
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,listening=false;$("#mic").onclick=()=>{if(!SR){add("Is browser mein voice input support nahi hai.","j");return}if(listening){rec.stop();return}rec=new SR;rec.lang="hi-IN";rec.interimResults=false;rec.onstart=()=>{listening=true;mode="listening";setState();$("#mic").classList.add("on")};rec.onend=()=>{listening=false;$("#mic").classList.remove("on");if(mode==="listening"){mode="idle";setState()}};rec.onresult=e=>ask(e.results[0][0].transcript);rec.start()};
+function sys(){const c=Math.round(20+Math.random()*40),m=55+Math.round(Math.random()*15);$("#clock").textContent=new Date().toLocaleTimeString("en-GB");$("#cpu").textContent=c+"%";$("#cb").style.width=c+"%";$("#mem").textContent=m+"%";$("#mb").style.width=m+"%";$("#net").textContent=navigator.onLine?"ONLINE":"OFFLINE";$("#device").textContent=/Android|Mobi/i.test(navigator.userAgent)?"MOBILE":"DESKTOP"}
+setInterval(sys,1000);sys();add("Namaste sir. JARVIS ready hai. Aapki kya madad kar sakta hoon?","j");
+</script>
+</body></html>
