@@ -35,7 +35,8 @@ class MainActivity : Activity() {
             settings.mediaPlaybackRequiresUserGesture = false
             addJavascriptInterface(Bridge(), "AndroidLLM")
             webViewClient = object : WebViewClient() {
-                override fun onPageFinished(v: WebView?, url: String?) = js("onModelState('$lastState')")
+                override fun onPageFinished(v: WebView?, url: String?) =
+                    js("onModelState('$lastState')")
             }
             loadUrl("file:///android_asset/index.html")
         }
@@ -44,10 +45,16 @@ class MainActivity : Activity() {
     }
 
     private fun js(code: String) = runOnUiThread { web.evaluateJavascript(code, null) }
-    private fun state(s: String) { lastState = s; js("window.onModelState&&onModelState('$s')") }
+    private fun state(s: String) {
+        lastState = s
+        js("window.onModelState&&onModelState('$s')")
+    }
 
     private fun initLlm() = bg.execute {
-        if (!modelFile.exists()) { state("nomodel"); return@execute }
+        if (!modelFile.exists()) {
+            state("nomodel")
+            return@execute
+        }
         state("loading")
         try {
             llm?.close()
@@ -55,18 +62,13 @@ class MainActivity : Activity() {
                 .setModelPath(modelFile.absolutePath)
                 .setMaxTokens(384)
                 .setMaxTopK(40)
-                .setResultListener { part, done ->
-                    js("onLlmToken("+JSONObject.quote(part ?: "")+","+done+")")
-                    if (done) busy = false
-                }
-                .setErrorListener { e ->
-                    busy = false
-                    js("onLlmToken("+JSONObject.quote("Error: " + e.message)+",true)")
-                }
                 .build()
             llm = LlmInference.createFromOptions(this, opts)
             state("ready")
-        } catch (t: Throwable) { llm = null; state("error") }
+        } catch (t: Throwable) {
+            llm = null
+            state("error")
+        }
     }
 
     private fun prompt(q: String) =
@@ -75,17 +77,30 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface fun status() = lastState
+
         @JavascriptInterface fun pickModel() = runOnUiThread {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE); type = "*/*" }, 7)
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }, 7)
         }
+
         @JavascriptInterface fun ask(q: String) {
             val m = llm ?: return
             if (busy) return
             busy = true
+            state("thinking")
             bg.execute {
-                try { m.generateResponseAsync(prompt(q)) }
-                catch (t: Throwable) { busy = false; js("onLlmToken('Error',true)") }
+                try {
+                    val result = m.generateResponse(prompt(q))
+                    busy = false
+                    js("onLlmToken("+JSONObject.quote(result)+",true)")
+                    state("ready")
+                } catch (t: Throwable) {
+                    busy = false
+                    js("onLlmToken("+JSONObject.quote("Error: " + (t.message ?: "inference failed"))+",true)")
+                    state("error")
+                }
             }
         }
     }
@@ -93,16 +108,26 @@ class MainActivity : Activity() {
     @Deprecated("simple picker")
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)
-        val uri = data?.data ?: return
         if (req != 7 || res != RESULT_OK) return
+        val uri = data?.data ?: return
         state("loading")
         bg.execute {
             try {
-                contentResolver.openInputStream(uri)?.use { i -> modelFile.outputStream().use { o -> i.copyTo(o, 1 shl 20) } }
+                contentResolver.openInputStream(uri)?.use { input ->
+                    modelFile.outputStream().use { output ->
+                        input.copyTo(output, 1 shl 20)
+                    }
+                } ?: throw IllegalStateException("Could not open model file")
                 initLlm()
-            } catch (t: Throwable) { state("error") }
+            } catch (t: Throwable) {
+                state("error")
+            }
         }
     }
 
-    override fun onDestroy() { llm?.close(); super.onDestroy() }
+    override fun onDestroy() {
+        bg.shutdownNow()
+        llm?.close()
+        super.onDestroy()
+    }
 }
